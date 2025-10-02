@@ -27,7 +27,7 @@ Sigue estos pasos para clonar y ejecutar el proyecto en tu máquina.
 1. Clonar el Repositorio
 Abre tu terminal y clona el proyecto:
 
-git clone [https://github.com/tu-usuario/evolve-rwa-chain.git](https://github.com/tu-usuario/evolve-rwa-chain.git)
+git clone [https://github.com/tu-usuario/evolve-rwa-chain.git](https://github.com/JuanaIntelinArt/evolve_chain/tree/main))
 cd evolve-rwa-chain
 
 2. Configuración de Firebase
