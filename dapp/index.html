@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evolve RWA Chain (Simulación Local)</title>
+    <title>Evolve RWA Chain PoC (Prueba de Concepto)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script type="module">
@@ -145,7 +145,7 @@
         // --- FUNCIONES DE INICIALIZACIÓN Y UI DEL FRONTEND ---
 
         function initApp() {
-            document.getElementById('app-id-display').textContent = 'LOCAL-SIMULATION';
+            document.getElementById('app-id-display').textContent = 'LOCAL-POC';
             document.getElementById('user-id-display').textContent = userId;
             document.getElementById('user-id-input').value = userId; 
             document.getElementById('compliance-user-input').value = userId;
@@ -154,7 +154,7 @@
             rwaChainSim.loadState(); // Cargar el estado inicial
             updateFrontend(); // Dibujar el estado inicial
 
-            document.getElementById('app-status').textContent = "Simulación Local Inicializada (Sin conexión a base de datos).";
+            document.getElementById('app-status').textContent = "Prueba de Concepto (PoC) en ejecución.";
             document.getElementById('main-content').classList.remove('hidden');
         }
 
@@ -181,7 +181,9 @@
                 const compliant = chainState.compliance[addr] === true ? '✅ COMPLIANT' : '❌ NO-COMPLIANT';
                 
                 const row = stateTableBody.insertRow();
-                row.className = addr === userId ? 'bg-blue-900/50' : 'hover:bg-slate-700/50';
+                // Cambiado: Uso de colores de Tailwind para la fila
+                // Nota: Usamos bg-purple-900/40 para la fila del usuario, manteniendo el tono original de acento para el resaltado
+                row.className = addr === userId ? 'bg-purple-900/40' : 'hover:bg-gray-700/50';
                 
                 const addrCell = row.insertCell();
                 addrCell.textContent = addr;
@@ -268,50 +270,55 @@
         /* Estilos generales */
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #0b1122; /* Fondo muy oscuro, casi negro-azulado */
+            background-color: #1e1e1e; /* Fondo Plomo Oscuro (#1e1e1e) */
             color: #f8fafc; /* Texto muy claro */
         }
 
-        /* Variables de color basadas en el logo azul/celeste */
-        .accent-color { color: #60a5fa; } /* Azul brillante (Tailwind blue-400) para títulos */
-        .primary-color { background-color: #3b82f6; } /* Azul primario para botones (Tailwind blue-500) */
+        /* Variables de color */
+        .accent-color { color: #1d4ed8; } /* Azul Oscuro para el título (Tailwind blue-700) */
         
-        .soft-bg { background-color: #1e293b; } /* Azul-gris oscuro (Gray-800) */
-        .dark-bg-card { background-color: #1e293b; } /* Fondo de tarjetas */
-        .border-color { border-color: #334155; } /* Borde suave (Gray-700) */
+        .soft-bg { background-color: #2d2d2d; } /* Fondo de status/footer gris más claro */
+        .dark-bg-card { background-color: #2d2d2d; } /* Fondo de tarjetas gris más claro */
+        .border-color { border-color: #4a4a4a; } /* Borde suave (gris oscuro) */
         
-        /* Estilo del Logo para destacar */
-        #logo-image {
-            border: 2px solid #60a5fa; /* Borde sutil del color de acento */
-            border-radius: 50%; /* Hacerlo circular */
-            box-shadow: 0 0 15px rgba(96, 165, 250, 0.5); /* Sombra azul brillante */
+        /* Estilo del Logo SVG */
+        #logo-svg {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 64px;
+            height: 64px;
+            margin-right: 1rem;
+            border-radius: 50%;
+            background-color: #1d4ed8; /* Fondo azul oscuro */
+            box-shadow: 0 0 15px rgba(29, 78, 216, 0.5); /* Sombra azul */
             transition: transform 0.3s ease;
         }
-        #logo-image:hover {
+        #logo-svg:hover {
             transform: scale(1.05);
         }
-
+        
         /* Estilo del Botón Primario */
         .btn-primary {
-            background-color: #3b82f6;
+            background-color: #4338ca; /* CORREGIDO: Tono Índigo más profundo y opaco (Indigo 700) */
             transition: background-color 0.2s, box-shadow 0.2s;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
         }
         .btn-primary:hover { 
-            background-color: #2563eb; /* Azul más oscuro al pasar el ratón */
-            box-shadow: 0 8px 15px -3px rgba(59, 130, 246, 0.4), 0 4px 6px -4px rgba(59, 130, 246, 0.4);
+            background-color: #3730a3; /* CORREGIDO: Tono Índigo aún más oscuro al pasar el ratón (Indigo 800) */
+            box-shadow: 0 8px 15px -3px rgba(67, 56, 202, 0.4), 0 4px 6px -4px rgba(67, 56, 202, 0.4);
         }
         
         /* Estilo de Inputs/Selects */
         .input-style {
-            background-color: #334155; /* Fondo del input más claro que la tarjeta */
-            border: 1px solid #475569;
+            background-color: #3f3f46; /* Fondo del input gris (slate-700) */
+            border: 1px solid #52525b; /* Borde gris (slate-600) */
             color: #e2e8f0;
             transition: border-color 0.2s;
         }
         .input-style:focus {
-            border-color: #60a5fa;
-            ring-color: #60a5fa;
+            border-color: #4338ca; /* CORREGIDO: Borde de enfoque igual al nuevo botón (Indigo 700) */
+            ring-color: #4338ca;
             outline: none;
         }
     </style>
@@ -323,29 +330,33 @@
         <!-- Header y Status -->
         <header class="text-center py-6 border-b border-color mb-8">
             <div class="flex items-center justify-center mb-4">
-                <!-- LOGO PNG -->
-                <img 
-                    src="Celeste_Chain.png" 
-                    alt="Evolve Chain RWA Logo (Guerrero con Armadura Azul y Espada)" 
-                    class="w-16 h-16 mr-4"
-                    id="logo-image"
-                    onerror="this.onerror=null; this.src='https://placehold.co/64x64/3b82f6/ffffff?text=Logo';"
-                >
-                <!-- FIN DEL LOGO PNG -->
+                <!-- NUEVO LOGO SVG DE TEXTO (Representando Seguridad y 'C' de Chain) -->
+                <div id="logo-svg">
+                    <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Símbolo de seguridad (un candado estilizado o una C de cadena) -->
+                        <path d="M50 10C27.909 10 10 27.909 10 50C10 72.091 27.909 90 50 90C72.091 90 90 72.091 90 50C90 45 88 40 85 36" stroke="#f8fafc" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <!-- Línea vertical corta para dar sensación de candado/cadena -->
+                        <path d="M50 35V65" stroke="#f8fafc" stroke-width="8" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <!-- FIN DEL LOGO SVG -->
 
                 <h1 class="text-4xl font-extrabold tracking-tight">
                     <span class="accent-color">Evolve RWA Chain</span>
                 </h1>
             </div>
             
-            <p class="mt-2 text-slate-400">Simulación LOCAL del Contrato Inteligente y Gobernanza (Compliance).</p>
+            <p class="mt-2 text-slate-400">
+                Prueba de Concepto (PoC) para la lógica de un **Sequencer EVM modular** sobre Celestia/Evolve.<br>
+                Demuestra el mecanismo de **Cumplimiento (Compliance)** para la transferencia de activos.
+            </p>
             <div class="mt-4 text-xs soft-bg p-3 rounded-lg flex flex-wrap justify-center items-center gap-x-4">
-                <span id="app-status" class="font-semibold text-yellow-300">Inicializando...</span>
+                <span id="app-status" class="font-semibold text-yellow-300">Prueba de Concepto (PoC) en ejecución.</span>
                 <span class="text-slate-500 hidden md:inline">|</span>
                 <span class="text-slate-400">Tipo: <span id="app-id-display" class="font-mono">...</span></span>
                 <span class="text-slate-500 hidden md:inline">|</span>
-                <span class="text-slate-400">Tu ID (Simulador): <span id="user-id-display" class="font-mono text-blue-400">...</span>
-                    <button onclick="copyTextToClipboard(document.getElementById('user-id-display').textContent)" class="ml-2 text-blue-300 hover:text-white transition">📋</button>
+                <span class="text-slate-400">Tu ID (Simulador): <span id="user-id-display" class="font-mono text-purple-400">...</span>
+                    <button onclick="copyTextToClipboard(document.getElementById('user-id-display').textContent)" class="ml-2 text-purple-300 hover:text-white transition">📋</button>
                 </span>
                 <span id="copy-msg" class="hidden text-xs text-green-400 ml-3">¡Copiado!</span>
             </div>
@@ -442,7 +453,7 @@
         </div>
 
         <footer class="text-center py-8 mt-8 text-slate-500 text-sm border-t border-color">
-            <p>El "backend" (estado de la cadena) se guarda en el almacenamiento local de tu navegador. **NO es multi-usuario.**</p>
+            <p>El "backend" (estado de la cadena) **simula** las funciones de un Smart Contract y se guarda **temporalmente** en el almacenamiento local de tu navegador.</p>
         </footer>
 
     </div>
