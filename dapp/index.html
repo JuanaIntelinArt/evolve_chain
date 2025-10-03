@@ -3,144 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evolve RWA Chain (Simulación DApp)</title>
+    <title>Evolve RWA Chain (Simulación Local)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script type="module">
-        // Importaciones de Firebase (necesarias para la persistencia del "estado de la cadena")
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // --- INICIALIZACIÓN DE VARIABLES CRÍTICAS ---
-        
-        // Intenta obtener las variables del entorno de Canvas
-        let firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        let appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        // ** BLOQUE CRÍTICO PARA EL DESPLIEGUE EN VERCEL/GITHUB PAGES **
-        // Si las variables de Canvas no existen, usa los placeholders de Vercel (que serán reemplazados durante el build)
-        if (!firebaseConfig) {
-            console.warn("Usando configuración de Firebase con Placeholders de Vercel.");
-            
-            // ATENCIÓN: Estos marcadores de posición SERÁN REEMPLAZADOS por los valores que configures en Vercel
-            firebaseConfig = {
-                apiKey: "%VITE_FIREBASE_API_KEY%", 
-                authDomain: "%VITE_FIREBASE_AUTH_DOMAIN%",
-                projectId: "%VITE_FIREBASE_PROJECT_ID%",
-                storageBucket: "%VITE_FIREBASE_STORAGE_BUCKET%",
-                messagingSenderId: "%VITE_FIREBASE_MESSAGING_SENDER_ID%",
-                appId: "%VITE_FIREBASE_APP_ID%"
-            };
-            // Usamos el Project ID como App ID
-            appId = firebaseConfig.projectId.includes("%") ? 'deployed-app-id' : firebaseConfig.projectId;
-        }
-        // ****************************************************************
-
-        let db, auth, userId = null;
+        // --- INICIALIZACIÓN DE VARIABLES LOCALES ---
+        // Generamos un ID de usuario pseudo-aleatorio para simular una dirección.
+        const LOCAL_STATE_KEY = 'evolveRwaLocalState';
+        let userId = 'LocalUser-' + Math.random().toString(36).substring(2, 8).toUpperCase(); 
         let chainState = { balances: {}, compliance: {} };
 
         // --- CLASE QUE SIMULA EL "BACKEND" (CONTRATO INTELIGENTE) ---
 
         /**
          * Simula la lógica de un Smart Contract EVM de RWA. 
-         * Utiliza Firestore para persistir el estado (balances, compliance).
+         * Utiliza localStorage para persistir el estado (balances, compliance) localmente.
          */
         class RwaChainSim {
-            constructor(dbInstance, currentUserId) {
-                this.db = dbInstance;
-                this.userId = currentUserId;
-                // Usando una colección pública para el estado compartido de la cadena
-                this.stateDocRef = doc(this.db, 'artifacts', appId, 'public', 'data', 'evolveChainState', 'rwa_state');
-                this.sequencerAddress = currentUserId; // El usuario autenticado es el Admin/Sequencer por defecto.
-                this.onStateUpdate = () => {}; // Callback para actualizar el frontend
+            constructor(currentUserId) {
+                this.userId = currentUserId; 
             }
 
-            /**
-             * Inicializa el estado si no existe y empieza a escuchar cambios.
-             */
-            async initialize() {
-                // 1. Inicializar estado si no existe
-                await this.initializeState();
-                
-                // 2. Escuchar cambios en tiempo real (onSnapshot)
-                onSnapshot(this.stateDocRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        chainState = {
-                            balances: data.balances || {},
-                            compliance: data.compliance || {},
-                        };
-                        this.onStateUpdate(chainState);
-                    } else {
-                        console.error("Error: El documento de estado no existe después de la inicialización.");
-                    }
-                }, (error) => {
-                    console.error("Error al escuchar cambios en Firestore:", error);
-                });
-            }
-
-            async initializeState() {
-                try {
-                    await runTransaction(this.db, async (transaction) => {
-                        const docSnap = await transaction.get(this.stateDocRef);
-
-                        if (!docSnap.exists()) {
-                            // Si el estado no existe, lo creamos con saldos iniciales y un usuario compliant.
-                            const initialState = {
-                                balances: {
-                                    [this.userId]: 10000, // Dar 10k RWA Tokens al primer usuario
-                                    "0xDEMO_USER": 5000 // Usuario de demostración
-                                },
-                                compliance: {
-                                    [this.userId]: true,
-                                    "0xDEMO_USER": true
-                                },
-                                lastUpdated: new Date().toISOString()
-                            };
-                            transaction.set(this.stateDocRef, initialState);
-                            console.log("Estado de la cadena inicializado con éxito.");
+            // Carga el estado desde localStorage
+            loadState() {
+                const storedState = localStorage.getItem(LOCAL_STATE_KEY);
+                if (storedState) {
+                    chainState = JSON.parse(storedState);
+                } else {
+                    // Estado inicial si no existe
+                    chainState = {
+                        balances: {
+                            [this.userId]: 10000, // Dar 10k RWA Tokens al usuario local
+                            "0xDEMO_USER": 5000 // Usuario de demostración
+                        },
+                        compliance: {
+                            [this.userId]: true,
+                            "0xDEMO_USER": true
                         }
-                    });
-                } catch (e) {
-                    console.error("Error en la transacción de inicialización:", e);
+                    };
                 }
             }
 
+            // Guarda el estado en localStorage
+            saveState() {
+                localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(chainState));
+            }
 
             /**
              * [Soberanía/Sequencer Función] Establece el estado de cumplimiento (KYC/AML).
              * @param {string} userAddress - La dirección a actualizar.
              * @param {boolean} status - El nuevo estado de cumplimiento.
              */
-            async setCompliance(userAddress, status) {
-                // En el entorno de despliegue, la autenticación es anónima, por lo que cualquier usuario puede ser el sequencer por simplicidad.
-                
+            setCompliance(userAddress, status) {
                 const cleanedAddress = userAddress.trim();
-
+                
+                // Cargar el estado antes de modificar
+                this.loadState();
+                
                 try {
-                    await runTransaction(this.db, async (transaction) => {
-                        const docSnap = await transaction.get(this.stateDocRef);
-                        const data = docSnap.data();
-                        
-                        // Verificar que la dirección exista
-                        if (!data.balances[cleanedAddress] && cleanedAddress !== this.userId) {
-                            throw new Error("Dirección no encontrada. Debe existir un saldo o ser tu propia dirección.");
-                        }
+                    // Verificar que la dirección exista
+                    if (!chainState.balances[cleanedAddress] && cleanedAddress !== this.userId) {
+                        return "Error de Compliance: Dirección no encontrada. Debe existir un saldo o ser tu propia dirección.";
+                    }
 
-                        // Validar si el estado ha cambiado
-                        if (data.compliance[cleanedAddress] === status) {
-                            throw new Error("El estado de cumplimiento ya es el solicitado.");
-                        }
+                    // Validar si el estado ha cambiado
+                    if (chainState.compliance[cleanedAddress] === status) {
+                        return "Error de Compliance: El estado de cumplimiento ya es el solicitado.";
+                    }
 
-                        // Aplicar el cambio de estado de cumplimiento
-                        // Asegurar que el objeto compliance siempre exista
-                        data.compliance = data.compliance || {};
-                        data.compliance[cleanedAddress] = status;
-                        data.lastUpdated = new Date().toISOString();
-                        transaction.update(this.stateDocRef, { compliance: data.compliance, lastUpdated: data.lastUpdated });
-                    });
+                    // Aplicar el cambio de estado de cumplimiento
+                    chainState.compliance[cleanedAddress] = status;
+                    
+                    // Guardar y actualizar UI
+                    this.saveState();
+                    updateFrontend(); 
+
                     return `Éxito: El estado de cumplimiento de ${cleanedAddress} se ha establecido en ${status}.`;
                 } catch (e) {
                     return `Error de Compliance: ${e.message}`;
@@ -153,112 +90,78 @@
              * @param {string} toAddress - El receptor.
              * @param {number} amount - La cantidad a transferir.
              */
-            async transferRWA(fromAddress, toAddress, amount) {
+            transferRWA(fromAddress, toAddress, amount) {
                 const cleanedFrom = fromAddress.trim();
                 const cleanedTo = toAddress.trim();
                 const transferAmount = parseInt(amount, 10);
+                
+                // Cargar el estado antes de modificar
+                this.loadState();
 
                 if (cleanedFrom === cleanedTo) {
-                    throw new Error("ERROR: El emisor y el receptor no pueden ser la misma dirección.");
+                    return "Error de Transacción: El emisor y el receptor no pueden ser la misma dirección.";
                 }
 
                 if (isNaN(transferAmount) || transferAmount <= 0) {
-                    throw new Error("ERROR: La cantidad debe ser un número positivo.");
+                    return "Error de Transacción: La cantidad debe ser un número positivo.";
                 }
                 
                 // --- SIMULACIÓN DEL MODIFICADOR 'onlyCompliant' DE SOLIDITY ---
                 if (!chainState.compliance[cleanedFrom]) {
-                    throw new Error("ERROR (Compliance): La dirección de origen no cumple con la lista blanca (whitelisting).");
+                    return "Error de Transacción (Compliance): La dirección de origen no cumple con la lista blanca (whitelisting).";
                 }
                 // ------------------------------------------------------------------
 
-                try {
-                    await runTransaction(this.db, async (transaction) => {
-                        const docSnap = await transaction.get(this.stateDocRef);
-                        const data = docSnap.data();
-
-                        const currentBalances = data.balances || {};
-                        // Aseguramos que la dirección de destino exista en balances antes de sumar
-                        if (!currentBalances[cleanedTo]) {
-                            currentBalances[cleanedTo] = 0;
-                        }
-                        
-                        const senderBalance = currentBalances[cleanedFrom] || 0;
-                        const receiverBalance = currentBalances[cleanedTo] || 0;
-
-                        if (senderBalance < transferAmount) {
-                            throw new Error(`ERROR: Fondos insuficientes. Saldo actual: ${senderBalance}.`);
-                        }
-
-                        // Ejecución del "Smart Contract"
-                        currentBalances[cleanedFrom] = senderBalance - transferAmount;
-                        currentBalances[cleanedTo] = receiverBalance + transferAmount;
-
-                        data.lastUpdated = new Date().toISOString();
-                        transaction.update(this.stateDocRef, { balances: currentBalances, lastUpdated: data.lastUpdated });
-                    });
-                    return `Éxito: Transferencia de ${transferAmount.toLocaleString('en-US')} RWA de ${cleanedFrom} a ${cleanedTo} completada.`;
-                } catch (e) {
-                    return `Error de Transacción: ${e.message}`;
+                const currentBalances = chainState.balances || {};
+                
+                // Aseguramos que la dirección de destino exista en balances antes de sumar
+                if (!currentBalances[cleanedTo]) {
+                    currentBalances[cleanedTo] = 0;
                 }
+                
+                const senderBalance = currentBalances[cleanedFrom] || 0;
+                const receiverBalance = currentBalances[cleanedTo] || 0;
+
+                if (senderBalance < transferAmount) {
+                    return `Error de Transacción: Fondos insuficientes. Saldo actual: ${senderBalance}.`;
+                }
+
+                // Ejecución del "Smart Contract"
+                currentBalances[cleanedFrom] = senderBalance - transferAmount;
+                currentBalances[cleanedTo] = receiverBalance + transferAmount;
+                chainState.balances = currentBalances;
+
+                // Guardar y actualizar UI
+                this.saveState();
+                updateFrontend();
+
+                return `Éxito: Transferencia de ${transferAmount.toLocaleString('en-US')} RWA de ${cleanedFrom} a ${cleanedTo} completada.`;
             }
         }
         
         let rwaChainSim;
 
 
-        // --- FUNCIONES DE AUTENTICACIÓN Y UI DEL FRONTEND ---
+        // --- FUNCIONES DE INICIALIZACIÓN Y UI DEL FRONTEND ---
 
-        async function initApp() {
-            // Verifica si los placeholders están aún presentes (lo que indica que Vercel falló en la inyección o no se configuró el build)
-            if (!firebaseConfig || firebaseConfig.apiKey.includes("%VITE_")) {
-                document.getElementById('app-status').textContent = "ERROR: Las credenciales de Firebase no se inyectaron. Revisa la configuración de las Variables de Entorno en Vercel.";
-                return;
-            }
+        function initApp() {
+            document.getElementById('app-id-display').textContent = 'LOCAL-SIMULATION';
+            document.getElementById('user-id-display').textContent = userId;
+            document.getElementById('user-id-input').value = userId; 
+            document.getElementById('compliance-user-input').value = userId;
 
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
+            rwaChainSim = new RwaChainSim(userId);
+            rwaChainSim.loadState(); // Cargar el estado inicial
+            updateFrontend(); // Dibujar el estado inicial
 
-            document.getElementById('app-id-display').textContent = appId;
-            
-            // Autenticar al usuario
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                document.getElementById('app-status').textContent = `Error de autenticación: ${error.message}`;
-                return;
-            }
-
-            // Una vez autenticado, inicializar la simulación de la cadena
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    userId = user.uid;
-                    document.getElementById('user-id-display').textContent = userId;
-                    document.getElementById('user-id-input').value = userId; // Establecer el ID del usuario en el campo 'From' por defecto.
-                    document.getElementById('compliance-user-input').value = userId;
-
-                    rwaChainSim = new RwaChainSim(db, userId);
-                    rwaChainSim.onStateUpdate = updateFrontend;
-                    rwaChainSim.initialize();
-                    document.getElementById('app-status').textContent = "Cadena Inicializada. Tu ID es el Sequencer/Admin.";
-                    document.getElementById('main-content').classList.remove('hidden');
-
-                } else {
-                    document.getElementById('app-status').textContent = "Esperando autenticación...";
-                }
-            });
+            document.getElementById('app-status').textContent = "Simulación Local Inicializada (Sin conexión a base de datos).";
+            document.getElementById('main-content').classList.remove('hidden');
         }
 
         /**
-         * Actualiza todos los elementos del frontend con el estado actual de la cadena (Firestore).
+         * Actualiza todos los elementos del frontend con el estado actual del localStorage.
          */
-        function updateFrontend(newState) {
-            chainState = newState;
+        function updateFrontend() {
             const stateTableBody = document.getElementById('state-table-body');
             stateTableBody.innerHTML = '';
             
@@ -297,7 +200,7 @@
         /**
          * Manejador para la transacción de tokens.
          */
-        async function handleTransfer() {
+        function handleTransfer() {
             const from = document.getElementById('user-id-input').value;
             const to = document.getElementById('to-id-input').value;
             const amount = document.getElementById('amount-input').value;
@@ -307,18 +210,13 @@
             output.classList.remove('text-green-400', 'text-red-400');
             output.classList.add('text-yellow-300');
 
-            try {
-                const result = await rwaChainSim.transferRWA(from, to, amount);
-                output.textContent = result;
-                output.classList.remove('text-yellow-300');
-                if (result.startsWith('Éxito')) {
-                    output.classList.add('text-green-400');
-                } else {
-                    output.classList.add('text-red-400');
-                }
-            } catch(e) {
-                output.textContent = `Error Fatal: ${e.message}`;
-                output.classList.remove('text-yellow-300');
+            const result = rwaChainSim.transferRWA(from, to, amount);
+            
+            output.textContent = result;
+            output.classList.remove('text-yellow-300');
+            if (result.startsWith('Éxito')) {
+                output.classList.add('text-green-400');
+            } else {
                 output.classList.add('text-red-400');
             }
         }
@@ -326,7 +224,7 @@
         /**
          * Manejador para el ajuste de cumplimiento por el Sequencer/Admin.
          */
-        async function handleCompliance() {
+        function handleCompliance() {
             const user = document.getElementById('compliance-user-input').value;
             const status = document.getElementById('compliance-status-select').value === 'true';
             const output = document.getElementById('compliance-output');
@@ -335,18 +233,13 @@
             output.classList.remove('text-green-400', 'text-red-400');
             output.classList.add('text-yellow-300');
 
-            try {
-                const result = await rwaChainSim.setCompliance(user, status);
-                output.textContent = result;
-                output.classList.remove('text-yellow-300');
-                if (result.startsWith('Éxito')) {
-                    output.classList.add('text-green-400');
-                } else {
-                    output.classList.add('text-red-400');
-                }
-            } catch(e) {
-                output.textContent = `Error Fatal: ${e.message}`;
-                output.classList.remove('text-yellow-300');
+            const result = rwaChainSim.setCompliance(user, status);
+
+            output.textContent = result;
+            output.classList.remove('text-yellow-300');
+            if (result.startsWith('Éxito')) {
+                output.classList.add('text-green-400');
+            } else {
                 output.classList.add('text-red-400');
             }
         }
@@ -445,13 +338,13 @@
                 </h1>
             </div>
             
-            <p class="mt-2 text-slate-400">Simulación del Contrato Inteligente y Gobernanza (Compliance).</p>
+            <p class="mt-2 text-slate-400">Simulación LOCAL del Contrato Inteligente y Gobernanza (Compliance).</p>
             <div class="mt-4 text-xs soft-bg p-3 rounded-lg flex flex-wrap justify-center items-center gap-x-4">
                 <span id="app-status" class="font-semibold text-yellow-300">Inicializando...</span>
                 <span class="text-slate-500 hidden md:inline">|</span>
-                <span class="text-slate-400">App ID: <span id="app-id-display" class="font-mono">...</span></span>
+                <span class="text-slate-400">Tipo: <span id="app-id-display" class="font-mono">...</span></span>
                 <span class="text-slate-500 hidden md:inline">|</span>
-                <span class="text-slate-400">Tu ID (Sequencer): <span id="user-id-display" class="font-mono text-blue-400">...</span>
+                <span class="text-slate-400">Tu ID (Simulador): <span id="user-id-display" class="font-mono text-blue-400">...</span>
                     <button onclick="copyTextToClipboard(document.getElementById('user-id-display').textContent)" class="ml-2 text-blue-300 hover:text-white transition">📋</button>
                 </span>
                 <span id="copy-msg" class="hidden text-xs text-green-400 ml-3">¡Copiado!</span>
@@ -529,7 +422,7 @@
 
             <!-- Tabla de Estado de la Cadena -->
             <div class="soft-bg p-6 rounded-xl shadow-lg border border-color">
-                <h2 class="text-2xl font-bold accent-color mb-4">Estado Global de la Cadena (Tiempo Real)</h2>
+                <h2 class="text-2xl font-bold accent-color mb-4">Estado Global de la Cadena (Local)</h2>
                 <div class="overflow-x-auto">
                     <table class="min-w-full table-auto text-left text-slate-200">
                         <thead class="border-b border-color">
@@ -549,7 +442,7 @@
         </div>
 
         <footer class="text-center py-8 mt-8 text-slate-500 text-sm border-t border-color">
-            <p>El "backend" (estado de la cadena) se sincroniza en tiempo real a través de Firebase Firestore para simular la persistencia y la multi-usuario.</p>
+            <p>El "backend" (estado de la cadena) se guarda en el almacenamiento local de tu navegador. **NO es multi-usuario.**</p>
         </footer>
 
     </div>
